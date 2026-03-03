@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Scanner BCB Pro</title>
+    <script src="https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js"></script>
+    <style>
+        body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; }
+        #camera-container { position: relative; width: 100vw; height: 100vh; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        
+        /* Marco de escaneo pro */
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border: 40px solid rgba(0,0,0,0.5); box-sizing: border-box;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .scanner-box {
+            width: 80%; height: 120px; border: 3px solid #00ff00;
+            border-radius: 10px; position: relative; box-shadow: 0 0 20px #00ff00;
+        }
+        .scanner-line {
+            width: 100%; height: 2px; background: red; position: absolute;
+            top: 0; animation: scan 2s infinite linear;
+        }
+        @keyframes scan { 0% {top: 0;} 100% {top: 100%;} }
+
+        .status-panel {
+            position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: white; padding: 15px 30px;
+            border-radius: 30px; text-align: center; width: 80%;
+        }
+        #result-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 100; flex-direction: column; align-items: center; justify-content: center;
+            color: white; font-weight: bold; text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div id="camera-container">
+    <video id="video" autoplay playsinline></video>
+    <div class="overlay">
+        <div class="scanner-box">
+            <div class="scanner-line"></div>
+        </div>
+        <p style="color: white; margin-top: 15px;">ENFOQUE EL NÚMERO DE SERIE</p>
+    </div>
+</div>
+
+<div class="status-panel" id="status">
+    Buscando billete...
+</div>
+
+<div id="result-overlay">
+    <h1 id="res-title" style="font-size: 3rem;"></h1>
+    <p id="res-detail" style="font-size: 1.5rem;"></p>
+    <button onclick="resetScanner()" style="padding: 15px 30px; margin-top: 20px; border-radius: 10px; border: none; background: white; font-weight: bold;">CONTINUAR ESCANEO</button>
+</div>
+
+<canvas id="canvas" style="display:none;"></canvas>
+
+<script>
+    const video = document.getElementById('video');
+    const status = document.getElementById('status');
+    const overlay = document.getElementById('result-overlay');
+
+    // Configuración de cámara de alta resolución
+    async function initCamera() {
+        const constraints = {
+            video: {
+                facingMode: "environment",
+                width: { ideal: 4096 }, // Intenta 4K
+                height: { ideal: 2160 },
+                focusMode: "continuous"
+            }
+        };
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = stream;
+            setTimeout(autoScan, 2000); // Inicia escaneo automático
+        } catch (err) {
+            status.innerText = "Error de cámara: Use un navegador seguro (HTTPS)";
+        }
+    }
+
+    async function autoScan() {
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        
+        // Capturar frame del video
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // 1. Detección de Color (Simulada para rendimiento rápido)
+        // Analizamos un pixel central para determinar el corte
+        const pixel = context.getImageData(canvas.width/2, canvas.height/2, 1, 1).data;
+        let corte = "10"; 
+        if (pixel[0] > 150 && pixel[1] < 100) corte = "20"; // Predomina Rojo
+        if (pixel[0] > 100 && pixel[2] > 100) corte = "50"; // Predomina Violeta
+
+        status.innerText = `Detectando billete de ${corte} Bs...`;
+
+        // 2. OCR (Lectura de número)
+        Tesseract.recognize(canvas, 'eng')
+            .then(({ data: { text } }) => {
+                const cleanText = text.replace(/[^0-9]/g, "");
+                if (cleanText.length >= 7) {
+                    validateBill(cleanText, corte);
+                } else {
+                    requestAnimationFrame(autoScan);
+                }
+            });
+    }
+
+    function validateBill(numero, corte) {
+        fetch('/validar', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({numero: numero, corte: corte})
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'error') {
+                showAlert("ILEGAL", "Billetes Serie B sin valor legal detectado.", "#ff0000");
+            } else {
+                // Si es legal, seguimos escaneando sin interrumpir
+                status.innerText = "BILLETE LEGAL - SIGA ESCANEANDO";
+                status.style.color = "#00ff00";
+                setTimeout(autoScan, 1000);
+            }
+        });
+    }
+
+    function showAlert(title, detail, color) {
+        overlay.style.display = 'flex';
+        overlay.style.backgroundColor = color;
+        document.getElementById('res-title').innerText = title;
+        document.getElementById('res-detail').innerText = detail;
+    }
+
+    function resetScanner() {
+        overlay.style.display = 'none';
+        autoScan();
+    }
+
+    initCamera();
+</script>
+</body>
+</html>
