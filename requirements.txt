@@ -1,0 +1,5 @@
+pytesseract==0.3.10
+opencv-python-headless==4.8.0.74
+numpy==1.24.3
+Flask==2.3.2
+gunicorn==21.2.0
