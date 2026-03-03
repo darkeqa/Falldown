@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner BCB Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .status-overlay { transition: background-color 0.3s ease; }
+        .legal { background-color: rgba(34, 197, 94, 0.9); }
+        .illegal { background-color: rgba(239, 68, 68, 0.9); }
+        #camera-feed { transform: scaleX(-1); } /* Espejo para cámara frontal */
+    </style>
+</head>
+<body class="bg-slate-900 text-white font-sans overflow-hidden">
+    <div id="main-container" class="status-overlay min-h-screen flex flex-col items-center p-4">
+        
+        <header class="w-full max-w-md flex justify-between items-center mb-6">
+            <h1 class="text-xl font-bold tracking-tight">VALIDADOR <span class="text-blue-400">BCB</span></h1>
+            <div id="connection-dot" class="h-3 w-3 bg-green-500 rounded-full animate-pulse"></div>
+        </header>
+
+        <div class="relative w-full max-w-md aspect-[3/4] bg-black rounded-3xl overflow-hidden border-4 border-slate-700 shadow-2xl">
+            <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
+            <div class="absolute inset-0 border-2 border-dashed border-white/30 m-12 rounded-lg pointer-events-none"></div>
+        </div>
+
+        <div class="w-full max-w-md mt-6 space-y-4 bg-slate-800/50 p-6 rounded-2xl backdrop-blur-md">
+            
+            <div class="flex gap-2">
+                <button id="btn-auto" class="flex-1 py-2 rounded-lg font-bold bg-blue-600">AUTOMÁTICO</button>
+                <button id="btn-manual" class="flex-1 py-2 rounded-lg font-bold bg-slate-700">MANUAL</button>
+            </div>
+
+            <div>
+                <label class="text-xs text-slate-400 uppercase font-bold">Denominación a Escanear</label>
+                <select id="bill-type" class="w-full bg-slate-700 p-3 rounded-xl mt-1 focus:ring-2 focus:ring-blue-500 outline-none">
+                    <option value="10">Bs. 10</option>
+                    <option value="20">Bs. 20</option>
+                    <option value="50">Bs. 50</option>
+                </select>
+            </div>
+
+            <button id="capture-btn" class="hidden w-full bg-white text-black font-black py-4 rounded-xl shadow-lg active:scale-95 transition-transform">
+                ESCANEAR SERIE
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const container = document.getElementById('main-container');
+        const btnAuto = document.getElementById('btn-auto');
+        const btnManual = document.getElementById('btn-manual');
+        const captureBtn = document.getElementById('capture-btn');
+        let mode = 'auto';
+
+        // Configuración de Cámara con Enfoque Automático
+        navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                facingMode: "environment",
+                focusMode: "continuous" // Enfoque automático continuo
+            } 
+        }).then(stream => { video.srcObject = stream; });
+
+        // Cambio de Modos
+        btnAuto.onclick = () => { mode = 'auto'; btnAuto.className = 'flex-1 py-2 rounded-lg font-bold bg-blue-600'; btnManual.className = 'flex-1 py-2 rounded-lg font-bold bg-slate-700'; captureBtn.classList.add('hidden'); startAutoAnalysis(); };
+        btnManual.onclick = () => { mode = 'manual'; btnManual.className = 'flex-1 py-2 rounded-lg font-bold bg-blue-600'; btnAuto.className = 'flex-1 py-2 rounded-lg font-bold bg-slate-700'; captureBtn.classList.remove('hidden'); };
+
+        function updateUI(isLegal) {
+            container.classList.remove('legal', 'illegal');
+            container.classList.add(isLegal ? 'legal' : 'illegal');
+            setTimeout(() => container.classList.remove('legal', 'illegal'), 2000);
+        }
+
+        // Simulación de respuesta de API basada en tu lógica de OCR.py
+        function processOCR() {
+            // Aquí llamarías a tu endpoint de Railway
+            // const isLegal = checkAgainstBlacklist(detectedSerie);
+            // updateUI(isLegal);
+        }
+    </script>
+</body>
+</html>
